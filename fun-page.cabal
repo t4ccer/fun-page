@@ -1,0 +1,76 @@
+cabal-version:      3.0
+name:               fun-page
+version:            1.0.0
+author:             Tomasz Maciosowski <t4ccer@gmail.com>
+license:            AGPL-3.0-or-later
+category:           Web
+build-type:         Simple
+extra-source-files: README.md
+
+common lang
+  default-language:   GHC2021
+  default-extensions:
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DerivingStrategies
+    DerivingVia
+    FunctionalDependencies
+    GADTs
+    LambdaCase
+    LexicalNegation
+    MultiWayIf
+    NegativeLiterals
+    NoStarIsType
+    NumDecimals
+    OverloadedStrings
+    PatternSynonyms
+    QualifiedDo
+    QuantifiedConstraints
+    RankNTypes
+    RecordWildCards
+    RoleAnnotations
+    TypeFamilies
+    TypeFamilyDependencies
+
+  build-depends:      base >=4.9 && <5
+  ghc-options:
+    -Weverything -Werror -Wno-unused-do-bind -Wno-implicit-prelude
+    -Wno-name-shadowing -Wno-unsafe -Wno-missing-safe-haskell-mode
+    -Wno-missing-local-signatures -Wno-monomorphism-restriction
+    -Wno-missed-specialisations -Wno-all-missed-specializations
+    -Wno-unrecognised-pragmas -Wno-operator-whitespace
+    -fprint-equality-relations -fprint-explicit-kinds
+    -fprint-explicit-foralls -fno-show-error-context
+    -fhide-source-paths
+
+library
+  import:          lang
+  hs-source-dirs:  src
+
+  -- cabal-fmt: expand src
+  exposed-modules:
+    FunPage
+    FunPage.Html
+    FunPage.Hydrate
+    FunPage.Internal.FFI
+    FunPage.Internal.HydrationKey
+    FunPage.Reactive
+    FunPage.Render
+    FunPage.Site
+
+  build-depends:
+    , bytestring
+    , containers
+    , directory
+    , filepath
+    , text
+    , transformers
+
+executable example-counter
+  import:         lang
+  hs-source-dirs: examples
+  main-is:        Counter.hs
+  build-depends:
+    , fun-page
+    , text

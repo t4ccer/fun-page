@@ -1,0 +1,18 @@
+repos:
+  - repo: local
+    hooks:
+      - id: fourmolu
+        name: fourmolu
+        entry: fourmolu --mode inplace
+        language: unsupported
+        files: "\\.l?hs(-boot)?$"
+      - id: cabal-fmt
+        name: cabal-fmt
+        entry: cabal-fmt --inplace
+        language: unsupported
+        files: "\\.cabal$"
+      - id: nixfmt
+        name: nixfmt
+        entry: nixfmt
+        language: unsupported
+        files: "\\.nix"

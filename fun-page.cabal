@@ -50,13 +50,16 @@ library
 
   -- cabal-fmt: expand src
   exposed-modules:
-    FunPage
     FunPage.Html
-    FunPage.Hydrate
+    FunPage.Internal.Create
     FunPage.Internal.FFI
+    FunPage.Internal.Html
+    FunPage.Internal.Hydrate
     FunPage.Internal.HydrationKey
+    FunPage.Internal.Monad
+    FunPage.Internal.Reactive
+    FunPage.Internal.Render
     FunPage.Reactive
-    FunPage.Render
     FunPage.Site
 
   build-depends:
@@ -71,6 +74,22 @@ executable example-counter
   import:         lang
   hs-source-dirs: examples
   main-is:        Counter.hs
+  build-depends:
+    , fun-page
+    , text
+
+executable todo-mvc
+  import:         lang
+  hs-source-dirs: examples
+  main-is:        TodoMVC.hs
+  build-depends:
+    , fun-page
+    , text
+
+executable fetch-user
+  import:         lang
+  hs-source-dirs: examples
+  main-is:        FetchUser.hs
   build-depends:
     , fun-page
     , text

@@ -3,9 +3,6 @@ module FunPage.Site (
   Page,
   page,
   runSite,
-  outputDirectory,
-  generateSite,
-  hydrateSite,
 ) where
 
 import Control.Exception (SomeException (SomeException), displayException, throwIO, try)
@@ -17,14 +14,15 @@ import Data.Kind (Type)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text.Encoding
 import System.Directory (createDirectoryIfMissing)
+import System.Exit (exitFailure)
 import System.FilePath (takeDirectory, (</>))
 import System.IO (hPutStrLn, stderr)
 import Text.Read (readMaybe)
 
-import FunPage.Html (Html, HtmlError (HtmlError))
-import FunPage.Hydrate (hydrateHtml)
 import FunPage.Internal.FFI (bodyAttribute, isBrowser, logError, scriptPath)
-import FunPage.Render (renderDocument, renderHtml)
+import FunPage.Internal.Html (Html, HtmlError (HtmlError))
+import FunPage.Internal.Hydrate (hydrateHtml)
+import FunPage.Internal.Render (renderDocument, renderHtml)
 
 -- | A page of the site: its path below the output directory and its markup.
 type Page :: Type
@@ -44,20 +42,28 @@ outputDirectory = ".fun-page-out"
 runSite :: [Page] -> IO ()
 runSite pages = do
   browser <- isBrowser
-  if browser then hydrateSite pages else generateSite outputDirectory pages
+  if browser then
+    hydrateSite pages
+  else
+    try (generateSite outputDirectory pages) >>= \case
+      Left (HtmlError msg) -> hPutStrLn stderr (Text.unpack msg) *> exitFailure
+      Right () -> pure ()
 
 -- | Write every page and the running program's own bundle (as @app.js@) into the directory.
 generateSite :: FilePath -> [Page] -> IO ()
 generateSite dir pages = do
   createDirectoryIfMissing True dir
   for_ pages $ \p -> do
-    (body, keys) <- renderHtml (pageHtml p)
+    rendered <-
+      try (renderHtml (pageHtml p)) >>= \case
+        Left (HtmlError msg) -> throwIO (HtmlError (msg <> " (in page " <> Text.pack (pagePath p) <> ")"))
+        Right r -> pure r
     let target = dir </> pagePath p
         script = Text.pack (relativeBundle (pagePath p))
     createDirectoryIfMissing True (takeDirectory target)
     ByteString.writeFile
       target
-      (Text.Encoding.encodeUtf8 (renderDocument (Text.pack (pagePath p)) script keys body))
+      (Text.Encoding.encodeUtf8 (renderDocument (Text.pack (pagePath p)) script rendered))
     hPutStrLn stderr ("Wrote " <> target)
   bundle <- ByteString.readFile =<< scriptPath
   ByteString.writeFile (dir </> "app.js") (stripHashbang bundle)

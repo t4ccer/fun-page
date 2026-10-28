@@ -2,9 +2,14 @@
 module FunPage.Html (
   -- * Markup
   Html,
-  newRVar,
   text,
-  textR,
+  text_,
+  forEachKeyed,
+
+  -- * Document head
+  title,
+  stylesheet,
+  htmlAttribute,
 
   -- * Elements
   element,
@@ -13,113 +18,146 @@ module FunPage.Html (
   p_,
   h1_,
   button_,
+  ul_,
+  li_,
+  section_,
+  header_,
+  footer_,
+  a_,
+  label_,
+  strong_,
+  input_,
 
   -- * Attributes
   Attribute,
   attribute,
   booleanAttribute,
+  property,
   class_,
-  on,
-  onClick,
+  classWhen,
+  id_,
+  for_,
+  type_,
+  placeholder_,
+  href_,
+  autofocus,
   hidden,
+  checked,
+  focusWhen,
 
-  -- * Interpreters
-  Backend (..),
-  ElementInfo (..),
-  HtmlError (..),
-  runHtml,
+  -- * Bindings
+  checkedWith,
+  valueWith,
+  bindChecked,
+  bindValue,
+
+  -- * Events
+  Event,
+  on,
+  on_,
+  onClick,
+  onDoubleClick,
+  onKeyDown,
+  onBlur,
+  eventKey,
+  eventTargetValue,
+  eventTargetChecked,
 ) where
 
-import Control.Exception (Exception (displayException))
-import Control.Monad.Trans.Reader (ReaderT (ReaderT))
-import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
+import Control.Monad ((>=>))
+import Data.IORef (newIORef)
 import Data.Kind (Type)
-import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as Text
+import GHC.Stack (HasCallStack, callStack)
 
-import FunPage.Internal.HydrationKey (HydrationKey, firstKey, keyToInt)
-import FunPage.Internal.HydrationKey qualified as HydrationKey
-import FunPage.Reactive (Graph, Handler, RVar, Reactive, newRVarIO)
+import FunPage.Internal.FFI (Event)
+import FunPage.Internal.FFI qualified as FFI
+import FunPage.Internal.Html (
+  Backend (backendElement, backendHead, backendKeyed, backendTextHole),
+  Child (ChildExclusive, ChildNode),
+  ElementInfo (
+    ElementInfo,
+    elementBoolAttributes,
+    elementEvents,
+    elementFocus,
+    elementKey,
+    elementProperties,
+    elementTag,
+    elementTextAttributes
+  ),
+  Env (envBackend, envParent),
+  HeadItem (HeadHtmlAttribute, HeadStylesheet, HeadTitle),
+  Html (Html),
+  Parent (Parent),
+  addChild,
+  allocateKey,
+  checkChildren,
+  text,
+ )
+import FunPage.Reactive (
+  Handler,
+  MonadReactiveRead (readRVar),
+  RVar,
+  Reactive,
+  handlerPerformSyncIO,
+  writeRVar,
+ )
 
--- TODO: Performance: detect pure reactive computations and do not hydrate these nodes and do not assign id
+-- | Reactive text: the content of the enclosing element follows the computation.
+--
+-- It must be the only content of its element (no wrapper is added for it).
+text_ :: (HasCallStack) => Reactive Text -> Html ()
+text_ r = Html $ \env -> do
+  addChild env (ChildExclusive "text_" callStack)
+  backendTextHole (envBackend env) r
 
--- | An element as seen by a 'Backend'.
-type ElementInfo :: Type
-data ElementInfo = ElementInfo
-  { elementTag :: Text
-  , elementKey :: HydrationKey
-  , elementTextAttributes :: [(Text, Reactive Text)]
-  , elementBoolAttributes :: [(Text, Reactive Bool)]
-  , elementEvents :: [(Text, Handler ())]
-  }
+-- | A list rendered from a reactive list of values, one item per key.
+--
+-- When the list changes, items whose key is new are created, items whose key is gone are removed,
+-- and the others are moved into the new order. A kept item is never re-rendered, so its DOM and
+-- local state survive: an item is rendered once from the value it had when its key appeared, and
+-- anything that should change afterwards must be reactive state inside the value (e.g. @RVar@
+-- fields). With @id@ as the key function, a changed value is a new key, so the item is recreated
+-- instead.
+--
+-- Rules:
+--
+-- * Every item is exactly one element.
+-- * The list is the only content of its parent element, e.g. @ul_ [] (forEachKeyed ...)@
+--   (checked when the site is generated).
+-- * Keys are unique; an item with a key already seen in the same list is skipped.
+forEachKeyed :: (HasCallStack, Ord k) => Reactive [a] -> (a -> k) -> (a -> Html ()) -> Html ()
+forEachKeyed items key item = Html $ \env -> do
+  addChild env (ChildExclusive "forEachKeyed" callStack)
+  backendKeyed (envBackend env) items key item
 
--- | What an interpreter does at each node.
-type Backend :: Type
-data Backend = Backend
-  { backendText :: Text -> IO ()
-  , backendElement :: ElementInfo -> IO () -> IO ()
-  , backendTextHole :: HydrationKey -> Reactive Text -> IO ()
-  }
+-- | The document title. See 'HeadItem' for where it goes.
+title :: Reactive Text -> Html ()
+title r = Html $ \env -> backendHead (envBackend env) (HeadTitle r)
 
-type Env :: Type
-data Env = Env
-  { envBackend :: Backend
-  , envGraph :: Graph
-  , envNextKey :: IORef HydrationKey
-  }
+-- | Link a stylesheet from the document head.
+stylesheet :: Text -> Html ()
+stylesheet href = Html $ \env -> backendHead (envBackend env) (HeadStylesheet href)
 
--- | Markup that can allocate reactive variables.
-type Html :: Type -> Type
-
-type role Html representational
-newtype Html a = Html (Env -> IO a)
-  deriving (Functor, Applicative, Monad) via ReaderT Env IO
-
--- | String literals are text nodes.
-instance a ~ () => IsString (Html a) where
-  fromString = text . Text.pack
-
--- | Misuse of the markup API, detected while the site is generated.
-type HtmlError :: Type
-newtype HtmlError = HtmlError Text
-  deriving stock (Show)
-
-instance Exception HtmlError where
-  displayException (HtmlError msg) = Text.unpack msg
-
--- | Interpret markup with a backend. Returns the number of hydration keys allocated.
-runHtml :: Backend -> Graph -> Html a -> IO (a, Int)
-runHtml backend graph (Html m) = do
-  env <- Env backend graph <$> newIORef firstKey
-  x <- m env
-  keys <- keyToInt <$> readIORef (envNextKey env)
-  pure (x, keys)
-
-allocateKey :: Env -> IO HydrationKey
-allocateKey env = atomicModifyIORef' (envNextKey env) (\k -> (HydrationKey.nextKey k, k))
-
--- | Create a reactive variable.
-newRVar :: a -> Html (RVar a)
-newRVar x = Html $ \env -> newRVarIO (envGraph env) x
-
--- | A static text node.
-text :: Text -> Html ()
-text s = Html $ \env -> do
-  backendText (envBackend env) s
-
--- | A reactive text node, rendered as @\<span fp-id="N"\>@ whose content follows the computation.
-textR :: Reactive Text -> Html ()
-textR r = Html $ \env -> do
-  k <- allocateKey env
-  backendTextHole (envBackend env) k r
+-- | Set an attribute of @\<html\>@, e.g. @htmlAttribute "lang" "en"@.
+htmlAttribute :: Text -> Reactive Text -> Html ()
+htmlAttribute k v = Html $ \env -> backendHead (envBackend env) (HeadHtmlAttribute k v)
 
 -- | An attribute of an element.
 type Attribute :: Type
 data Attribute
   = AttributeText Text (Reactive Text)
   | AttributeBool Text (Reactive Bool)
-  | AttributeEvent Text (Handler ())
+  | AttributeProperty Text (Reactive Text)
+  | AttributeEvent Text (Event -> Handler ())
+  | AttributeFocus (Reactive Bool)
+  | AttributeMany [Attribute]
+
+flattenAttributes :: [Attribute] -> [Attribute]
+flattenAttributes = concatMap $ \case
+  AttributeMany as -> flattenAttributes as
+  a -> [a]
 
 -- | An attribute with a value.
 attribute :: Text -> Reactive Text -> Attribute
@@ -132,29 +170,109 @@ booleanAttribute = AttributeBool
 hidden :: Reactive Bool -> Attribute
 hidden = booleanAttribute "hidden"
 
+-- | A text attribute at build time that is a JS property in the browser, such as @value@.
+-- The property is only written when it differs, so e.g. the caret of an input is not reset.
+property :: Text -> Reactive Text -> Attribute
+property = AttributeProperty
+
+checked :: Reactive Bool -> Attribute
+checked = booleanAttribute "checked"
+
 class_ :: Reactive Text -> Attribute
 class_ = attribute "class"
 
--- | Run a handler when the named DOM event fires on the element.
-on :: Text -> Handler () -> Attribute
+-- | A list of classes, each present while its condition holds.
+classWhen :: [(Text, Reactive Bool)] -> Attribute
+classWhen cs = class_ (Text.unwords . map fst . filter snd <$> traverse (\(c, r) -> (c,) <$> r) cs)
+
+id_ :: Text -> Attribute
+id_ = attribute "id" . pure
+
+for_ :: Text -> Attribute
+for_ = attribute "for" . pure
+
+type_ :: Text -> Attribute
+type_ = attribute "type" . pure
+
+placeholder_ :: Text -> Attribute
+placeholder_ = attribute "placeholder" . pure
+
+href_ :: Text -> Attribute
+href_ = attribute "href" . pure
+
+autofocus :: Attribute
+autofocus = booleanAttribute "autofocus" (pure True)
+
+-- | Focus the element whenever the value becomes 'True'.
+focusWhen :: Reactive Bool -> Attribute
+focusWhen = AttributeFocus
+
+-- | A checkbox showing a value, and a handler for when the user changes it.
+checkedWith :: Reactive Bool -> (Bool -> Handler ()) -> Attribute
+checkedWith r h = AttributeMany [checked r, on "change" (eventTargetChecked >=> h)]
+
+-- | An input showing a value, and a handler for every edit by the user.
+valueWith :: Reactive Text -> (Text -> Handler ()) -> Attribute
+valueWith r h = AttributeMany [property "value" r, on "input" (eventTargetValue >=> h)]
+
+bindChecked :: RVar Bool -> Attribute
+bindChecked v = checkedWith (readRVar v) (writeRVar v)
+
+bindValue :: RVar Text -> Attribute
+bindValue v = valueWith (readRVar v) (writeRVar v)
+
+-- | Run a handler, given the event object, when the named DOM event fires on the element.
+on :: Text -> (Event -> Handler ()) -> Attribute
 on = AttributeEvent
 
+-- | 'on' for handlers that do not need the event.
+on_ :: Text -> Handler () -> Attribute
+on_ ev h = on ev (const h)
+
 onClick :: Handler () -> Attribute
-onClick = on "click"
+onClick = on_ "click"
+
+onDoubleClick :: Handler () -> Attribute
+onDoubleClick = on_ "dblclick"
+
+onBlur :: Handler () -> Attribute
+onBlur = on_ "blur"
+
+onKeyDown :: (Event -> Handler ()) -> Attribute
+onKeyDown = on "keydown"
+
+-- | @event.key@, or @""@ for events without a key.
+eventKey :: Event -> Text
+eventKey = FFI.eventKey
+
+-- | @event.target.value@.
+eventTargetValue :: Event -> Handler Text
+eventTargetValue = handlerPerformSyncIO . FFI.eventTargetValue
+
+-- | @event.target.checked@.
+eventTargetChecked :: Event -> Handler Bool
+eventTargetChecked = handlerPerformSyncIO . FFI.eventTargetChecked
 
 -- | A generic element.
 element :: Text -> [Attribute] -> Html () -> Html ()
-element tag attrs (Html children) = Html $ \env -> do
+element tag attrs0 (Html children) = Html $ \env -> do
   key <- allocateKey env
-  let info =
+  let attrs = flattenAttributes attrs0
+      info =
         ElementInfo
           { elementTag = tag
           , elementKey = key
           , elementTextAttributes = [(k, v) | AttributeText k v <- attrs]
           , elementBoolAttributes = [(k, v) | AttributeBool k v <- attrs]
+          , elementProperties = [(k, v) | AttributeProperty k v <- attrs]
           , elementEvents = [(ev, h) | AttributeEvent ev h <- attrs]
+          , elementFocus = [r | AttributeFocus r <- attrs]
           }
-  backendElement (envBackend env) info (children env)
+  addChild env ChildNode
+  parent <- Parent tag <$> newIORef []
+  backendElement (envBackend env) info $ do
+    children env {envParent = Just parent}
+    checkChildren parent
 
 div_ :: [Attribute] -> Html () -> Html ()
 div_ = element "div"
@@ -170,3 +288,30 @@ h1_ = element "h1"
 
 button_ :: [Attribute] -> Html () -> Html ()
 button_ = element "button"
+
+ul_ :: [Attribute] -> Html () -> Html ()
+ul_ = element "ul"
+
+li_ :: [Attribute] -> Html () -> Html ()
+li_ = element "li"
+
+section_ :: [Attribute] -> Html () -> Html ()
+section_ = element "section"
+
+header_ :: [Attribute] -> Html () -> Html ()
+header_ = element "header"
+
+footer_ :: [Attribute] -> Html () -> Html ()
+footer_ = element "footer"
+
+a_ :: [Attribute] -> Html () -> Html ()
+a_ = element "a"
+
+label_ :: [Attribute] -> Html () -> Html ()
+label_ = element "label"
+
+strong_ :: [Attribute] -> Html () -> Html ()
+strong_ = element "strong"
+
+input_ :: [Attribute] -> Html ()
+input_ attrs = element "input" attrs (pure ())

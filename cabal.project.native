@@ -1,0 +1,5 @@
+-- Native GHC, for documentation
+-- cabal haddock --project-file=cabal.project.native --builddir=dist-native lib:fun-page
+packages: .
+with-compiler: ghc
+with-hc-pkg: ghc-pkg

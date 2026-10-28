@@ -1,11 +1,14 @@
 indentation: 2
-comma-style: leading
-record-brace-space: true
+# column-limit: 100
 indent-wheres: true
-diff-friendly-import-export: true
+record-brace-space: true
+haddock-style: single-line
+haddock-style-module: single-line
+haddock-location-signature: leading
+let-style: inline
+if-style: hanging
+import-export-style: diff-friendly
 import-grouping: by-scope
 respectful: true
-haddock-style: multi-line
-newlines-between-decls: 1
 single-deriving-parens: always
-single-constraint-parens: never
+single-constraint-parens: always

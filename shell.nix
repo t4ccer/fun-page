@@ -10,6 +10,8 @@ pkgs.mkShell {
     pkgs.nixfmt
 
     pkgs.pkgsCross.ghcjs.buildPackages.ghc
+    # Native GHC, for Haddock (see cabal.project.native).
+    pkgs.ghc
     pkgs.cabal-install
     pkgs.fourmolu
     pkgs.haskellPackages.doctest

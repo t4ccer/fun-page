@@ -1,11 +1,7 @@
+{-# OPTIONS_GHC -Wno-missing-export-lists #-}
+
 -- | Hydration keys: the @fp-id@ values that tie rendered elements to hydration.
-module FunPage.Internal.HydrationKey (
-  HydrationKey,
-  firstKey,
-  nextKey,
-  keyToInt,
-  keyText,
-) where
+module FunPage.Internal.HydrationKey where
 
 import Data.Kind (Type)
 import Data.Text (Text)

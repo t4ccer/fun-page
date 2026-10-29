@@ -219,11 +219,12 @@ type role ReactIO representational
 data ReactIO a
   = -- | The latest run finished with this result.
     ReactIOSuccess a
-  | -- | The latest run has not finished yet (or, at build time, never started). Holds the stale
-    -- result of the run before it, if that one succeeded.
+  | -- | The latest run has not finished yet (or, at build time, never started).
+    -- Holds the stale result of the last run that succeeded, if any.
     ReactIOPending (Maybe a)
   | -- | The latest run threw this exception.
-    ReactIOException SomeException
+    -- Holds the stale result of the last run that succeeded, if any.
+    ReactIOException (Maybe a) SomeException
   deriving stock (Show, Functor)
 
 -- | Run asynchronous IO action and write the result to the passed 'RVar'
@@ -257,11 +258,13 @@ reactAsyncIOInto g install out input act = do
   install input $ \x -> do
     cancel
     gen <- readIORef (rvarGeneration out)
-    readIORef (rvarRef out) >>= \case
-      ReactIOSuccess y -> writeRVarUntracked g out (ReactIOPending (Just y))
-      ReactIOPending _ -> pure ()
-      ReactIOException _ -> writeRVarUntracked g out (ReactIOPending Nothing)
+    -- The stale value survives pending runs and failures, so it is always the last success.
+    stale <-
+      readIORef (rvarRef out) >>= \case
+        ReactIOSuccess y -> Just y <$ writeRVarUntracked g out (ReactIOPending (Just y))
+        ReactIOPending y -> pure y
+        ReactIOException y _ -> y <$ writeRVarUntracked g out (ReactIOPending y)
     -- Exceptions become the result instead of being reported. The 'Control.Exception.ThreadKilled'
     -- of a cancelled run is caught here too, but that run is stale, so it is dropped.
-    tid <- forkInto g "reactAsyncIO" out gen (either ReactIOException ReactIOSuccess <$> try (act x))
+    tid <- forkInto g "reactAsyncIO" out gen (either (ReactIOException stale) ReactIOSuccess <$> try (act x))
     writeIORef running (Just tid)

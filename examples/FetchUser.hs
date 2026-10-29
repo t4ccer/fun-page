@@ -134,5 +134,9 @@ showResult = \case
   -- The previous result, while the next one is loading.
   ReactIOPending (Just n) -> n <> " (loading…)"
   ReactIOSuccess n -> n
-  -- 'displayException' on 'SomeException' itself would include the backtrace.
-  ReactIOException (SomeException e) -> "Error: " <> Text.pack (displayException e)
+  ReactIOException Nothing e -> "Error: " <> showException e
+  -- The last successful result, next to the error of the latest run.
+  ReactIOException (Just n) e -> n <> " (error: " <> showException e <> ")"
+  where
+    -- 'displayException' on 'SomeException' itself would include the backtrace.
+    showException (SomeException e) = Text.pack (displayException e)

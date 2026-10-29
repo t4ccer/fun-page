@@ -10,7 +10,7 @@ import Data.Text qualified as Text
 
 import FunPage.Html
 import FunPage.Reactive
-import FunPage.Site (page, runSite)
+import FunPage.Site (emptySite, page, runSite, sitePages)
 
 -- | A todo item. The fields that change are variables of their own, so changing them does not change the list.
 type Task :: Type
@@ -150,4 +150,4 @@ taskItem remove task = do
       ]
 
 main :: IO ()
-main = runSite [page "index.html" todoMvc]
+main = runSite $ emptySite {sitePages = [page "index.html" todoMvc]}

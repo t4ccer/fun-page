@@ -4,7 +4,7 @@ import Data.Text qualified as Text
 
 import FunPage.Html (Html, button_, div_, hidden, onClick, span_, text_)
 import FunPage.Reactive (modifyRVar, newRVar, readRVar, writeRVar)
-import FunPage.Site (page, runSite)
+import FunPage.Site (emptySite, page, runSite, sitePages)
 
 -- | The standard counter app, with a reset button shown only when the count is non-zero.
 counter :: Html ()
@@ -17,4 +17,4 @@ counter = do
     button_ [onClick (writeRVar count 0), hidden ((== 0) <$> readRVar count)] "reset"
 
 main :: IO ()
-main = runSite [page "index.html" counter]
+main = runSite $ emptySite {sitePages = [page "index.html" counter]}

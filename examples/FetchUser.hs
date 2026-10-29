@@ -13,10 +13,10 @@ import GHC.JS.Prim (JSVal, fromJSString, isNull, toJSString)
 
 import FunPage.Html
 import FunPage.Reactive
-import FunPage.Site (page, runSite)
+import FunPage.Site (emptySite, page, runSite, sitePages)
 
 main :: IO ()
-main = runSite [page "index.html" page']
+main = runSite $ emptySite {sitePages = [page "index.html" page']}
 
 page' :: Html ()
 page' = do

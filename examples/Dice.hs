@@ -8,7 +8,7 @@ import Data.Text qualified as Text
 
 import FunPage.Html (Html, button_, div_, onClick, p_, span_, text_)
 import FunPage.Reactive (modifyRVarAsyncIO, newRVar, readRVar, writeRVar)
-import FunPage.Site (page, runSite)
+import FunPage.Site (emptySite, page, runSite, sitePages)
 
 -- | The last roll, if any, and the sum of all rolls so far.
 type Dice :: Type
@@ -41,4 +41,4 @@ dice = do
     span_ [] (text_ (Text.pack . show . diceTotal <$> readRVar state))
 
 main :: IO ()
-main = runSite [page "index.html" dice]
+main = runSite $ emptySite {sitePages = [page "index.html" dice]}

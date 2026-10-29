@@ -3,6 +3,8 @@ module FunPage.Site (
   Page,
   page,
   runSite,
+  Site (sitePages, siteOutput),
+  emptySite,
 ) where
 
 import Control.Exception (SomeException (SomeException), displayException, throwIO, try)
@@ -34,18 +36,27 @@ data Page = Page
 page :: FilePath -> Html () -> Page
 page = Page
 
--- | Where 'runSite' writes the site under node (relative to the working directory).
-outputDirectory :: FilePath
-outputDirectory = ".fun-page-out"
+type Site :: Type
+data Site = Site
+  { sitePages :: [Page]
+  , siteOutput :: FilePath
+  }
+
+emptySite :: Site
+emptySite =
+  Site
+    { sitePages = []
+    , siteOutput = ".fun-page-out"
+    }
 
 -- | Under node: generate the site. In the browser: hydrate the current page.
-runSite :: [Page] -> IO ()
-runSite pages = do
+runSite :: Site -> IO ()
+runSite site = do
   browser <- isBrowser
   if browser then
-    hydrateSite pages
+    hydrateSite site
   else
-    try (generateSite outputDirectory pages) >>= \case
+    try (generateSite (siteOutput site) (sitePages site)) >>= \case
       Left (HtmlError msg) -> hPutStrLn stderr (Text.unpack msg) *> exitFailure
       Right () -> pure ()
 
@@ -82,14 +93,14 @@ stripHashbang s
   | otherwise = s
 
 -- | Hydrate the page named by @fp-page@ on @\<body\>@.
-hydrateSite :: [Page] -> IO ()
-hydrateSite pages = do
+hydrateSite :: Site -> IO ()
+hydrateSite site = do
   result <- try $ do
     name <- bodyAttribute "fp-page"
     count <- bodyAttribute "fp-count"
     case name of
       Nothing -> throwIO (HtmlError "fun-page: <body> has no fp-page attribute")
-      Just n -> case find ((== Text.unpack n) . pagePath) pages of
+      Just n -> case find ((== Text.unpack n) . pagePath) (sitePages site) of
         Nothing -> throwIO (HtmlError ("fun-page: no page named \"" <> n <> "\""))
         Just p -> hydrateHtml (readMaybe . Text.unpack =<< count) (pageHtml p)
   case result of

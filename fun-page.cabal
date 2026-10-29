@@ -67,6 +67,7 @@ library
     , containers
     , directory
     , filepath
+    , process
     , text
     , transformers
 

@@ -3,7 +3,7 @@ module FunPage.Site (
   Page,
   page,
   runSite,
-  Site (sitePages, siteOutput),
+  Site (sitePages, siteOutput, siteClosureCompiler),
   emptySite,
 ) where
 
@@ -15,10 +15,11 @@ import Data.Foldable (find, for_)
 import Data.Kind (Type)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text.Encoding
-import System.Directory (createDirectoryIfMissing)
+import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.Exit (exitFailure)
 import System.FilePath (takeDirectory, (</>))
 import System.IO (hPutStrLn, stderr)
+import System.Process (callProcess)
 import Text.Read (readMaybe)
 
 import FunPage.Internal.FFI (bodyAttribute, isBrowser, logError, scriptPath)
@@ -40,6 +41,7 @@ type Site :: Type
 data Site = Site
   { sitePages :: [Page]
   , siteOutput :: FilePath
+  , siteClosureCompiler :: Bool
   }
 
 emptySite :: Site
@@ -47,6 +49,7 @@ emptySite =
   Site
     { sitePages = []
     , siteOutput = ".fun-page-out"
+    , siteClosureCompiler = False
     }
 
 -- | Under node: generate the site. In the browser: hydrate the current page.
@@ -56,15 +59,16 @@ runSite site = do
   if browser then
     hydrateSite site
   else
-    try (generateSite (siteOutput site) (sitePages site)) >>= \case
+    try (generateSite site) >>= \case
       Left (HtmlError msg) -> hPutStrLn stderr (Text.unpack msg) *> exitFailure
       Right () -> pure ()
 
--- | Write every page and the running program's own bundle (as @app.js@) into the directory.
-generateSite :: FilePath -> [Page] -> IO ()
-generateSite dir pages = do
+-- | Write every page and the running program's own bundle (as @app.js@) into the output directory.
+generateSite :: Site -> IO ()
+generateSite site = do
+  let dir = siteOutput site
   createDirectoryIfMissing True dir
-  for_ pages $ \p -> do
+  for_ (sitePages site) $ \p -> do
     rendered <-
       try (renderHtml (pageHtml p)) >>= \case
         Left (HtmlError msg) -> throwIO (HtmlError (msg <> " (in page " <> Text.pack (pagePath p) <> ")"))
@@ -76,9 +80,37 @@ generateSite dir pages = do
       target
       (Text.Encoding.encodeUtf8 (renderDocument (Text.pack (pagePath p)) script rendered))
     hPutStrLn stderr ("Wrote " <> target)
-  bundle <- ByteString.readFile =<< scriptPath
-  ByteString.writeFile (dir </> "app.js") (stripHashbang bundle)
-  hPutStrLn stderr ("Wrote " <> (dir </> "app.js"))
+  program <- scriptPath
+  let bundle = dir </> "app.js"
+  if siteClosureCompiler site then
+    closureCompile program bundle
+  else do
+    code <- ByteString.readFile program
+    ByteString.writeFile bundle (stripHashbang code)
+  hPutStrLn stderr ("Wrote " <> bundle)
+
+-- | Minify the running program into the given file with the Closure Compiler.
+closureCompile :: FilePath -> FilePath -> IO ()
+closureCompile program output = do
+  let jsexe = program <> ".jsexe"
+      inputs = [jsexe </> "all.js", jsexe </> "all.externs.js"]
+  for_ inputs $ \f -> do
+    exists <- doesFileExist f
+    if exists then
+      pure ()
+    else
+      throwIO (HtmlError ("fun-page: closure compiler: " <> Text.pack f <> " does not exist"))
+  hPutStrLn stderr ("Running the Closure Compiler on " <> (jsexe </> "all.js"))
+  callProcess "closure-compiler" $
+    [ "--language_in=UNSTABLE"
+    , "--compilation_level=ADVANCED_OPTIMIZATIONS"
+    , "--warning_level=QUIET"
+    , "--isolation_mode=IIFE"
+    , "--assume_function_wrapper"
+    , "--emit_use_strict"
+    ]
+      <> concat [["--js", f] | f <- inputs]
+      <> ["--js_output_file", output]
 
 -- | Path from a page to @app.js@ at the root of the output directory.
 relativeBundle :: FilePath -> FilePath

@@ -3,7 +3,7 @@
 -- | The render-mode interpreter: 'Html' to an HTML string.
 module FunPage.Internal.Render where
 
-import Control.Monad (unless, when)
+import Control.Monad (foldM_, unless, when)
 import Data.Foldable (for_)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import Data.Kind (Type)
@@ -82,13 +82,12 @@ mkBackend graph emit headItems withKeys =
         emit (escapeText s)
     , backendKeyed = \items key item -> do
         xs <- runReactiveUntracked graph items
-        let go _ [] = pure ()
-            go seen (x : rest)
-              | Set.member (key x) seen = go seen rest
+        let go seen x
+              | Set.member (key x) seen = pure seen
               | otherwise = do
                   runHtml (mkBackend graph emit headItems False) graph (item x)
-                  go (Set.insert (key x) seen) rest
-        go Set.empty xs
+                  pure (Set.insert (key x) seen)
+        foldM_ go Set.empty xs
     , backendHead = \item -> modifyIORef' headItems (item :)
     , backendEffect = \_ _ -> pure ()
     }

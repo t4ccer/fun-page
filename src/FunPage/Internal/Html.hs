@@ -53,7 +53,7 @@ data Backend = Backend
   , backendElement :: ElementInfo -> IO () -> IO ()
   , backendTextHole :: Reactive Text -> IO ()
   -- ^ Reactive text: the whole content of the enclosing element (checked by the traversal).
-  , backendKeyed :: forall a k. (Ord k) => Reactive [a] -> (a -> k) -> (a -> Html ()) -> IO ()
+  , backendKeyed :: forall f a k. (Foldable f, Ord k) => Reactive (f a) -> (a -> k) -> (a -> Html ()) -> IO ()
   -- ^ A keyed list: the whole content of the enclosing element (checked by the traversal).
   -- The items are 'Html' of their own, which the backend runs with 'runHtml'.
   , backendHead :: HeadItem -> IO ()

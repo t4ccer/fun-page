@@ -127,7 +127,7 @@ text_ r = Html $ \env -> do
 -- * The list is the only content of its parent element, e.g. @ul_ [] (forEachKeyed ...)@
 --   (checked when the site is generated).
 -- * Keys are unique; an item with a key already seen in the same list is skipped.
-forEachKeyed :: (HasCallStack, Ord k) => Reactive [a] -> (a -> k) -> (a -> Html ()) -> Html ()
+forEachKeyed :: (HasCallStack, Foldable f, Ord k) => Reactive (f a) -> (a -> k) -> (a -> Html ()) -> Html ()
 forEachKeyed items key item = Html $ \env -> do
   addChild env (ChildExclusive "forEachKeyed" callStack)
   backendKeyed (envBackend env) items key item

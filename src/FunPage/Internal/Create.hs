@@ -131,7 +131,7 @@ type Item :: Type
 data Item = Item Element (IO ())
 
 -- | Keep the children of the parent in sync with the list, one item per key.
-keyedList :: (Ord k) => Graph -> Element -> Reactive [a] -> (a -> k) -> (a -> Html ()) -> IO ()
+keyedList :: (Foldable f, Ord k) => Graph -> Element -> Reactive (f a) -> (a -> k) -> (a -> Html ()) -> IO ()
 keyedList graph parent items key item = do
   setAttrText parent "textContent" ""
   live <- newIORef Map.empty
@@ -155,12 +155,11 @@ keyedList graph parent items key item = do
     for = flip traverse
 
 -- | Keep the first occurrence of every key, in order.
-nubOn :: (Ord k) => (a -> k) -> [a] -> [(k, a)]
-nubOn key = go Set.empty
+nubOn :: (Foldable f, Ord k) => (a -> k) -> f a -> [(k, a)]
+nubOn key xs = foldr go (\_ -> []) xs Set.empty
   where
-    go _ [] = []
-    go seen (x : xs)
-      | Set.member k seen = go seen xs
-      | otherwise = (k, x) : go (Set.insert k seen) xs
+    go x next seen
+      | Set.member k seen = next seen
+      | otherwise = (k, x) : next (Set.insert k seen)
       where
         k = key x

@@ -162,7 +162,7 @@ flush g = do
     readIORef (graphEffects g) >>= sequence_ . Map.lookup eff
     flush g
 
--- | Run a batch of writes (e.g. a handler) untracked, then every effect made dirty by it.
+-- | Run a batch of writes (e.g. a handler) untracked, then run every effect made dirty by it.
 runBatch :: Graph -> (Graph -> IO a) -> IO a
 runBatch g act = do
   x <- withObserver g Nothing (act g)

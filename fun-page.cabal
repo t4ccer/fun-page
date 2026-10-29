@@ -70,6 +70,29 @@ library
     , text
     , transformers
 
+library fun-page-tasty
+  import:          lang
+  visibility:      public
+  hs-source-dirs:  fun-page-tasty
+  exposed-modules: FunPage.Test
+  build-depends:
+    , fun-page
+    , tasty
+    , tasty-hunit
+    , text
+
+test-suite fun-page-test
+  import:         lang
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is:        Test.hs
+  build-depends:
+    , fun-page
+    , fun-page-tasty
+    , tasty
+    , tasty-hunit
+    , text
+
 executable example-counter
   import:         lang
   hs-source-dirs: examples

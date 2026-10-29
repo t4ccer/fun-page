@@ -93,3 +93,11 @@ executable fetch-user
   build-depends:
     , fun-page
     , text
+
+executable dice
+  import:         lang
+  hs-source-dirs: examples
+  main-is:        Dice.hs
+  build-depends:
+    , fun-page
+    , text

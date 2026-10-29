@@ -18,6 +18,7 @@ module FunPage.Reactive (
 
   -- * Asynchronous IO
   writeRVarAsyncIO,
+  modifyRVarAsyncIO,
   ReactIO (..),
   reactAsyncIO,
   reactAsyncIOInto,
@@ -39,8 +40,17 @@ writeRVar v a = Handler (\g -> R.writeRVar g v a)
 modifyRVar :: RVar a -> (a -> a) -> Handler ()
 modifyRVar v f = Handler (\g -> R.modifyRVar g v f)
 
+-- | Run an IO action asynchronously and write its result into the variable.
+--
+-- A later write to the variable (of any kind) before it finishes cancels it.
 writeRVarAsyncIO :: RVar a -> IO a -> Handler ()
 writeRVarAsyncIO v act = Handler (\g -> R.writeRVarAsyncIO g v act)
+
+-- | Run an IO action asynchronously and, when it finishes, combine its result with the current value
+--
+-- A later write to the variable (of any kind) before it finishes cancels it.
+modifyRVarAsyncIO :: RVar a -> IO b -> (a -> b -> a) -> Handler ()
+modifyRVarAsyncIO v act f = Handler (\g -> R.modifyRVarAsyncIO g v act f)
 
 -- | Run IO synchronously inside a handler.
 handlerPerformSyncIO :: IO a -> Handler a

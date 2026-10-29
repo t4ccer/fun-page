@@ -195,6 +195,12 @@ writeRVarAsyncIO g v act = do
   myGen <- bumpGeneration v
   void (forkInto g "writeRVarAsyncIO" v myGen act)
 
+-- | Run an IO action asynchronously and, when it finishes, combine its result with the current value
+modifyRVarAsyncIO :: Graph -> RVar a -> IO b -> (a -> b -> a) -> IO ()
+modifyRVarAsyncIO g v act f = do
+  myGen <- bumpGeneration v
+  void (forkModifying g "modifyRVarAsyncIO" v myGen ((\y x -> f x y) <$> act))
+
 -- | Start a new generation of the variable, invalidating every pending asynchronous write to it.
 bumpGeneration :: RVar a -> IO Generation
 bumpGeneration v = atomicModifyIORef' (rvarGeneration v) $ \gen ->
@@ -204,13 +210,18 @@ bumpGeneration v = atomicModifyIORef' (rvarGeneration v) $ \gen ->
 -- finishes, write its result (as a batch of its own) or report its error. A stale run is dropped
 -- silently, including the 'Control.Exception.ThreadKilled' of a cancelled one.
 forkInto :: Graph -> Text -> RVar a -> Generation -> IO a -> IO ThreadId
-forkInto g name v myGen act = forkIO $ do
+forkInto g name v myGen act = forkModifying g name v myGen (const <$> act)
+
+-- | 'forkInto' for an action whose result is applied to the value the variable has when it
+-- finishes.
+forkModifying :: Graph -> Text -> RVar a -> Generation -> IO (a -> a) -> IO ThreadId
+forkModifying g name v myGen act = forkIO $ do
   result <- try act
   gen <- readIORef (rvarGeneration v)
   when (gen == myGen) $ case result of
     Left (SomeException e) ->
       graphReportError g ("fun-page: " <> name <> ": " <> Text.pack (displayException e))
-    Right x -> runBatch g (\g' -> writeRVarUntracked g' v x)
+    Right h -> runBatch g (\g' -> readRVar v >>= writeRVarUntracked g' v . h)
 
 -- | The state of an asynchronous IO action
 type ReactIO :: Type -> Type

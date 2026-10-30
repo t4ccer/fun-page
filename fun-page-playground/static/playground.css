@@ -1,0 +1,74 @@
+html, body  {
+  height: 100%;
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+body  {
+  display: flex;
+  flex-direction: column;
+}
+
+header  {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #ccc;
+}
+
+header h1  {
+  font-size: 1rem;
+  margin: 0 1rem 0 0;
+}
+
+#status  {
+  color: #555;
+  font-size: 0.9rem;
+}
+
+main  {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+#left  {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid #ccc;
+}
+
+#editor  {
+  flex: 1;
+  line-height: 1.4;
+}
+
+/* otherwise some fonts lose the underscore of button_ */
+#output  {
+  height: 9rem;
+  margin: 0;
+  padding: 0.4rem;
+  overflow: auto;
+  background: #f6f6f6;
+  border-top: 1px solid #ccc;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}
+
+#output.error  {
+  color: #b00;
+}
+
+#preview  {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+
+#preview iframe  {
+  flex: 1;
+  border: 0;
+}

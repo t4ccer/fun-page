@@ -66,6 +66,8 @@ Then by doing `do counter; counter` you get two independent counters with no nee
 
 There are no messages. The only way of communicating between parts of the webpage is by writing to `RVar`s.
 
+A simple API ideal for humans.
+
 ### `IO`
 
 `Handler` also allows to run `IO` actions but one need to be careful to not block the thread as the callback would then throw.

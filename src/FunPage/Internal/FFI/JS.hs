@@ -62,6 +62,9 @@ foreign import javascript unsafe "((e) => e.key === undefined ? '' : e.key)"
 foreign import javascript unsafe "((e) => String(e.target.value))"
   js_eventTargetValue :: JSVal -> IO JSVal
 
+foreign import javascript unsafe "((e) => String(e.detail))"
+  js_eventDetail :: JSVal -> IO JSVal
+
 foreign import javascript unsafe "((e) => !!e.target.checked)"
   js_eventTargetChecked :: JSVal -> IO Bool
 
@@ -169,6 +172,9 @@ eventTargetValue (Event e) = Text.pack . fromJSString <$> js_eventTargetValue e
 
 eventTargetChecked :: Event -> IO Bool
 eventTargetChecked (Event e) = js_eventTargetChecked e
+
+eventDetail :: Event -> IO Text
+eventDetail (Event e) = Text.pack . fromJSString <$> js_eventDetail e
 
 -- | Set an attribute with @setAttribute@, or remove it when given 'Nothing'.
 setAttribute :: Element -> Text -> Maybe Text -> IO ()

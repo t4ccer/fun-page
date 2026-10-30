@@ -109,6 +109,9 @@ foreign import javascript "const k = funPage.get($0).key; return funPage.str(k =
 foreign import javascript "return funPage.str(String(funPage.get($0).target.value));"
   js_eventTargetValue :: Int -> IO CString
 
+foreign import javascript "return funPage.str(String(funPage.get($0).detail));"
+  js_eventDetail :: Int -> IO CString
+
 foreign import javascript "return funPage.get($0).target.checked ? 1 : 0;"
   js_eventTargetChecked :: Int -> IO Int
 
@@ -260,6 +263,9 @@ eventTargetValue (Event e) = js_eventTargetValue e >>= takeText'
 
 eventTargetChecked :: Event -> IO Bool
 eventTargetChecked (Event e) = (/= 0) <$> js_eventTargetChecked e
+
+eventDetail :: Event -> IO Text
+eventDetail (Event e) = js_eventDetail e >>= takeText'
 
 setAttribute :: Element -> Text -> Maybe Text -> IO ()
 setAttribute (Element el) k v =

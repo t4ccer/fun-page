@@ -20,6 +20,8 @@ module FunPage.Reactive (
   writeRVarAsyncIO,
   modifyRVarAsyncIO,
   ReactIO (..),
+  reactIOIsPending,
+  reactIOIntoPending,
   reactAsyncIO,
   reactAsyncIOInto,
 ) where
@@ -65,6 +67,16 @@ reactAsyncIO input act = Html $ \env -> do
 reactAsyncIOInto :: RVar (ReactIO b) -> Reactive a -> (a -> IO b) -> Html ()
 reactAsyncIOInto out input act = Html $ \env ->
   R.reactAsyncIOInto (envGraph env) (install env) out (runReactive input) act
+
+reactIOIsPending :: ReactIO a -> Bool
+reactIOIsPending (ReactIOPending _) = True
+reactIOIsPending _ = False
+
+reactIOIntoPending :: ReactIO a -> ReactIO a
+reactIOIntoPending = \case
+  ReactIOSuccess stale -> ReactIOPending (Just stale)
+  ReactIOException stale _ -> ReactIOPending stale
+  ReactIOPending stale -> ReactIOPending stale
 
 -- | The backend's effect (a no-op at build time), for graph-level computations.
 install :: Env -> (Graph -> IO x) -> (x -> IO ()) -> IO ()

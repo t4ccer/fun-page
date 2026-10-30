@@ -7,6 +7,7 @@ import Data.Kind (Type)
 import Data.Text qualified as Text
 
 import FunPage.Html (Html, button_, div_, onClick, p_, span_, text_)
+import FunPage.JS (jsAwait)
 import FunPage.Reactive (modifyRVarAsyncIO, newRVar, readRVar, writeRVar)
 import FunPage.Site (emptySite, page, runSite, sitePages)
 
@@ -24,8 +25,8 @@ addRoll :: Dice -> Int -> Dice
 addRoll d r = Dice {diceLast = Just r, diceTotal = diceTotal d + r}
 
 -- | Roll a six-sided die. Imagine this is generated on a remote server.
-foreign import javascript interruptible "(($c) => $c(1 + Math.floor(Math.random() * 6)))"
-  rollDie :: IO Int
+rollDie :: IO Int
+rollDie = read . Text.unpack <$> jsAwait "(1 + Math.floor(Math.random() * 6))"
 
 dice :: Html ()
 dice = do

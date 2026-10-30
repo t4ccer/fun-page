@@ -20,13 +20,17 @@ module FunPage.Html (
   button_,
   ul_,
   li_,
-  section_,
   header_,
+  main_,
+  section_,
   footer_,
   a_,
   label_,
   strong_,
+  pre_,
   input_,
+  select_,
+  option_,
 
   -- * Attributes
   Attribute,
@@ -62,6 +66,7 @@ module FunPage.Html (
   eventKey,
   eventTargetValue,
   eventTargetChecked,
+  eventDetail,
 ) where
 
 import Control.Monad ((>=>))
@@ -253,6 +258,11 @@ eventTargetValue = handlerPerformSyncIO . FFI.eventTargetValue
 eventTargetChecked :: Event -> Handler Bool
 eventTargetChecked = handlerPerformSyncIO . FFI.eventTargetChecked
 
+-- | @String(event.detail)@: the data of a @CustomEvent@ (e.g. one that JavaScript sends with
+-- @el.dispatchEvent(new CustomEvent("my-event", { detail: "..." }))@).
+eventDetail :: Event -> Handler Text
+eventDetail = handlerPerformSyncIO . FFI.eventDetail
+
 -- | A generic element.
 element :: Text -> [Attribute] -> Html () -> Html ()
 element tag attrs0 (Html children) = Html $ \env -> do
@@ -301,6 +311,9 @@ section_ = element "section"
 header_ :: [Attribute] -> Html () -> Html ()
 header_ = element "header"
 
+main_ :: [Attribute] -> Html () -> Html ()
+main_ = element "main"
+
 footer_ :: [Attribute] -> Html () -> Html ()
 footer_ = element "footer"
 
@@ -315,3 +328,12 @@ strong_ = element "strong"
 
 input_ :: [Attribute] -> Html ()
 input_ attrs = element "input" attrs (pure ())
+
+select_ :: [Attribute] -> Html () -> Html ()
+select_ = element "select"
+
+option_ :: [Attribute] -> Html () -> Html ()
+option_ = element "option"
+
+pre_ :: [Attribute] -> Html () -> Html ()
+pre_ = element "pre"

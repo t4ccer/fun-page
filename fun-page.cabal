@@ -168,5 +168,24 @@ executable dice
     , text
 
   -- MicroHs compiles foreign import javascript only for emscripten, and mcabal builds natively.
+  if (impl(mhs) && flag(browser))
+    buildable: False
+
+-- The playground (see fun-page-playground/README.md). Generating it also builds its compiler (MicroHs).
+executable fun-page-playground
+  import:         lang
+  hs-source-dirs: fun-page-playground
+  main-is:        FunPage/Playground.hs
+  other-modules:
+    FunPage.Playground.Browser
+    FunPage.Playground.Build
+
+  build-depends:
+    , directory
+    , fun-page
+    , process
+    , text
+
+  -- Uses GHC.JS.Prim; it is built with GHC (the compiler it runs is MicroHs).
   if impl(mhs)
     buildable: False

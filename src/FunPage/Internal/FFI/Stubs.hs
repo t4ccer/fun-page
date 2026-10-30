@@ -69,6 +69,9 @@ eventTargetValue _ = unsupported "eventTargetValue"
 eventTargetChecked :: Event -> IO Bool
 eventTargetChecked _ = unsupported "eventTargetChecked"
 
+eventDetail :: Event -> IO Text
+eventDetail _ = unsupported "eventDetail"
+
 setAttribute :: Element -> Text -> Maybe Text -> IO ()
 setAttribute _ _ _ = unsupported "setAttribute"
 

@@ -69,7 +69,6 @@ import Data.IORef (newIORef)
 import Data.Kind (Type)
 import Data.Text (Text)
 import Data.Text qualified as Text
-import GHC.Stack (HasCallStack, callStack)
 
 import FunPage.Internal.FFI (Event)
 import FunPage.Internal.FFI qualified as FFI
@@ -95,6 +94,7 @@ import FunPage.Internal.Html (
   checkChildren,
   text,
  )
+import FunPage.Internal.Stack (HasCallStack, callStack)
 import FunPage.Reactive (
   Handler,
   MonadReactiveRead (readRVar),

@@ -21,5 +21,6 @@ pkgs.mkShell {
     pkgs.nodejs
     pkgs.miniserve
     pkgs.closurecompiler
+    pkgs.emscripten
   ];
 }

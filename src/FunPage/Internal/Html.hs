@@ -10,7 +10,6 @@ import Data.Kind (Type)
 import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as Text
-import GHC.Stack (CallStack, getCallStack, srcLocFile, srcLocStartCol, srcLocStartLine)
 
 import FunPage.Internal.FFI (Event)
 import FunPage.Internal.HydrationKey (HydrationKey, firstKey, keyToInt)
@@ -18,6 +17,7 @@ import FunPage.Internal.HydrationKey qualified as HydrationKey
 import FunPage.Internal.Monad (Handler, MonadReactiveNew (newRVar), Reactive)
 import FunPage.Internal.Reactive (Graph)
 import FunPage.Internal.Reactive qualified as R
+import FunPage.Internal.Stack (CallStack, callSiteText)
 
 -- TODO: Performance: detect pure reactive computations and do not hydrate these nodes and do not assign id
 
@@ -86,9 +86,7 @@ data Child
 
 -- | Where a combinator was called, as @file:line:column@, from the call stack it captured.
 callSite :: CallStack -> Text
-callSite cs = case getCallStack cs of
-  (_, loc) : _ -> Text.pack (srcLocFile loc <> ":" <> show (srcLocStartLine loc) <> ":" <> show (srcLocStartCol loc)) <> ": "
-  [] -> ""
+callSite = Text.pack . callSiteText
 
 -- | Record a child of the current element. Content that must be alone needs an element to be in.
 addChild :: Env -> Child -> IO ()

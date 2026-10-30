@@ -10,6 +10,7 @@ module FunPage.Internal.Create where
 import Control.Exception (throwIO)
 import Control.Monad (when)
 import Data.Foldable (for_)
+import Data.Foldable qualified as Foldable
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Kind (Type)
 import Data.Map.Strict qualified as Map
@@ -18,6 +19,7 @@ import Data.Text qualified as Text
 
 import FunPage.Internal.FFI (
   Element,
+  addStylesheet,
   appendChild,
   createElement,
   createTextNode,
@@ -48,7 +50,7 @@ import FunPage.Internal.Html (
   runHtml,
  )
 import FunPage.Internal.Monad (Reactive, reactiveEffect, runHandler)
-import FunPage.Internal.Reactive (Graph, onCleanup, withOwner)
+import FunPage.Internal.Reactive (Graph, newGraph, onCleanup, withOwner)
 
 -- | Where created nodes go.
 type CreateTarget :: Type
@@ -82,7 +84,10 @@ mkBackend graph target =
             keyedList graph parent items key item
           CreateTargetAppended _ ->
             throwIO (HtmlError "fun-page: forEachKeyed must be inside an element")
-    , backendHead = attachHead graph
+    , backendHead = \case
+        -- Mounting starts without the page's HTML, so its stylesheets are not linked yet.
+        HeadStylesheet url -> addStylesheet url
+        item -> attachHead graph item
     , backendEffect = reactiveEffect graph
     }
   where
@@ -105,12 +110,20 @@ attachElement graph el info = do
       writeIORef prev b
       when (b && not was) (focus el)
 
--- | Head items in the browser. Stylesheets are already in the document.
+-- | Head items in the browser, for a page whose HTML (with its stylesheets) is already loaded.
 attachHead :: Graph -> HeadItem -> IO ()
 attachHead graph = \case
   HeadTitle r -> reactiveEffect graph r setDocumentTitle
   HeadStylesheet _ -> pure ()
   HeadHtmlAttribute k v -> reactiveEffect graph v (setHtmlAttribute k)
+
+-- | Build the markup with DOM functions and append it to the element, without existing HTML.
+mountHtml :: Element -> Html () -> IO ()
+mountHtml parent html = do
+  graph <- newGraph
+  target <- newIORef (CreateTargetRoots parent)
+  ((), _) <- runHtml (mkBackend graph target) graph html
+  pure ()
 
 -- | Create the single root element of a keyed-list item.
 createItem :: Graph -> Html () -> IO Element
@@ -156,7 +169,7 @@ keyedList graph parent items key item = do
 
 -- | Keep the first occurrence of every key, in order.
 nubOn :: (Foldable f, Ord k) => (a -> k) -> f a -> [(k, a)]
-nubOn key xs = foldr go (\_ -> []) xs Set.empty
+nubOn key xs = Foldable.foldr go (\_ -> []) xs Set.empty
   where
     go x next seen
       | Set.member k seen = next seen

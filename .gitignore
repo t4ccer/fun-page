@@ -3,3 +3,5 @@
 /dist-native/
 /.fun-page-out/
 /node_modules/
+/dist-mcabal/
+/result*

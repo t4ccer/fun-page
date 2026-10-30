@@ -44,11 +44,18 @@ common lang
     -fprint-explicit-foralls -fno-show-error-context
     -fhide-source-paths
 
+flag browser
+  description:
+    Build the MicroHs browser backend (needs emscripten). Ignored by GHC.
+
+  default:     False
+  manual:      True
+
 library
   import:          lang
   hs-source-dirs:  src
 
-  -- cabal-fmt: expand src
+  -- cabal-fmt: expand src -FunPage.Internal.FFI.JS -FunPage.Internal.FFI.MHS -FunPage.Internal.FFI.Stubs
   exposed-modules:
     FunPage.Html
     FunPage.Internal.Create
@@ -59,6 +66,8 @@ library
     FunPage.Internal.Monad
     FunPage.Internal.Reactive
     FunPage.Internal.Render
+    FunPage.Internal.Stack
+    FunPage.JS
     FunPage.Reactive
     FunPage.Site
 
@@ -66,10 +75,22 @@ library
     , bytestring
     , containers
     , directory
-    , filepath
     , process
     , text
     , transformers
+
+  -- The DOM primitives of one backend, re-exported by FunPage.Internal.FFI. Under MicroHs the
+  -- browser backend (foreign import javascript) needs emscripten, so it is only built with the
+  -- browser flag; otherwise there are stubs, as for native GHC.
+  if arch(javascript)
+    other-modules: FunPage.Internal.FFI.JS
+
+  elif (impl(mhs) && flag(browser))
+    other-modules: FunPage.Internal.FFI.MHS
+    cpp-options:   -DFUN_PAGE_BROWSER
+
+  else
+    other-modules: FunPage.Internal.FFI.Stubs
 
 library fun-page-tasty
   import:          lang
@@ -81,6 +102,10 @@ library fun-page-tasty
     , tasty
     , tasty-hunit
     , text
+
+  -- jsdom/tasty test harness: GHC JavaScript backend only.
+  if impl(mhs)
+    buildable: False
 
 test-suite fun-page-test
   import:         lang
@@ -94,6 +119,10 @@ test-suite fun-page-test
     , tasty-hunit
     , text
 
+  -- jsdom/tasty test harness: GHC JavaScript backend only.
+  if impl(mhs)
+    buildable: False
+
 executable example-counter
   import:         lang
   hs-source-dirs: examples
@@ -101,6 +130,10 @@ executable example-counter
   build-depends:
     , fun-page
     , text
+
+  -- With the browser backend there are no native programs (mcabal builds natively).
+  if (impl(mhs) && flag(browser))
+    buildable: False
 
 executable todo-mvc
   import:         lang
@@ -110,6 +143,10 @@ executable todo-mvc
     , fun-page
     , text
 
+  -- With the browser backend there are no native programs (mcabal builds natively).
+  if (impl(mhs) && flag(browser))
+    buildable: False
+
 executable fetch-user
   import:         lang
   hs-source-dirs: examples
@@ -118,6 +155,10 @@ executable fetch-user
     , fun-page
     , text
 
+  -- Uses GHC.JS.Prim (JSVal strings), which MicroHs does not have.
+  if impl(mhs)
+    buildable: False
+
 executable dice
   import:         lang
   hs-source-dirs: examples
@@ -125,3 +166,7 @@ executable dice
   build-depends:
     , fun-page
     , text
+
+  -- MicroHs compiles foreign import javascript only for emscripten, and mcabal builds natively.
+  if impl(mhs)
+    buildable: False

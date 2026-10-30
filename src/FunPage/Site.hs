@@ -1,8 +1,11 @@
+{-# LANGUAGE CPP #-}
+
 -- | Generating and hydrating a site of several pages.
 module FunPage.Site (
   Page,
   page,
   runSite,
+  mountPage,
   Site (sitePages, siteOutput, siteClosureCompiler),
   emptySite,
 ) where
@@ -17,12 +20,12 @@ import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text.Encoding
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.Exit (exitFailure)
-import System.FilePath (takeDirectory, (</>))
 import System.IO (hPutStrLn, stderr)
 import System.Process (callProcess)
 import Text.Read (readMaybe)
 
-import FunPage.Internal.FFI (bodyAttribute, isBrowser, logError, scriptPath)
+import FunPage.Internal.Create (mountHtml)
+import FunPage.Internal.FFI (bodyAttribute, getElementById, initialize, isBrowser, logError, scriptPath)
 import FunPage.Internal.Html (Html, HtmlError (HtmlError))
 import FunPage.Internal.Hydrate (hydrateHtml)
 import FunPage.Internal.Render (renderDocument, renderHtml)
@@ -80,6 +83,9 @@ generateSite site = do
       target
       (Text.Encoding.encodeUtf8 (renderDocument (Text.pack (pagePath p)) script rendered))
     hPutStrLn stderr ("Wrote " <> target)
+
+-- A MicroHs program is not its own browser bundle: @app.js@ is built separately (with emcc).
+#if !defined(__MHS__)
   program <- scriptPath
   let bundle = dir </> "app.js"
   if siteClosureCompiler site then
@@ -88,6 +94,20 @@ generateSite site = do
     code <- ByteString.readFile program
     ByteString.writeFile bundle (stripHashbang code)
   hPutStrLn stderr ("Wrote " <> bundle)
+#endif
+
+-- The parts of @filepath@ used here (POSIX paths), so the library does not depend on it: under
+-- MicroHs it pulls in mtl, exceptions and os-string.
+(</>) :: FilePath -> FilePath -> FilePath
+a </> b
+  | null a = b
+  | last a == '/' = a <> b
+  | otherwise = a <> "/" <> b
+
+takeDirectory :: FilePath -> FilePath
+takeDirectory path = case dropWhile (/= '/') (reverse path) of
+  [] -> "."
+  _ : rest -> if null rest then "/" else reverse rest
 
 -- | Minify the running program into the given file with the Closure Compiler.
 closureCompile :: FilePath -> FilePath -> IO ()
@@ -124,9 +144,22 @@ stripHashbang s
   | "#!" `ByteString.isPrefixOf` s = ByteString.drop 1 (ByteString.Char8.dropWhile (/= '\n') s)
   | otherwise = s
 
+-- | Build the markup into the element with the given id after the element's existing children.
+mountPage :: Text.Text -> Html () -> IO ()
+mountPage elementId html = do
+  initialize
+  result <- try $ do
+    getElementById elementId >>= \case
+      Nothing -> throwIO (HtmlError ("fun-page: no element with id \"" <> elementId <> "\""))
+      Just el -> mountHtml el html
+  case result of
+    Left (SomeException e) -> logError (Text.pack (displayException e))
+    Right () -> pure ()
+
 -- | Hydrate the page named by @fp-page@ on @\<body\>@.
 hydrateSite :: Site -> IO ()
 hydrateSite site = do
+  initialize
   result <- try $ do
     name <- bodyAttribute "fp-page"
     count <- bodyAttribute "fp-count"

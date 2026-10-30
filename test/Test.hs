@@ -2,12 +2,14 @@
 
 module Main (main) where
 
+import Control.Exception (try)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Test.Tasty (testGroup)
-import Test.Tasty.HUnit (testCase)
+import Test.Tasty.HUnit (testCase, (@?), (@?=))
 
 import FunPage.Html
+import FunPage.JS
 import FunPage.Reactive
 import FunPage.Test
 
@@ -58,6 +60,15 @@ main =
         getValue new >>= assertEq ""
         getElementById "drop" >>= click
         items >>= assertEq ["b", "c"]
+    , testCase "jsEval" $ do
+        jsEval "1 + 2" >>= (@?= "3")
+        r <- try (jsEval "null.x")
+        either (\(JSError _) -> True) (const False) r @? "jsEval throws"
+    , testCase "jsAwait" $ do
+        jsAwait "new Promise((ok) => setTimeout(() => ok('done'), 10))" >>= (@?= "done")
+        jsAwait "42" >>= (@?= "42")
+        r <- try (jsAwait "Promise.reject(new Error('no'))")
+        either (\(JSError e) -> e == "Error: no") (const False) r @? "jsAwait throws"
     ]
 
 counter :: Html ()

@@ -5,6 +5,7 @@ module FunPage.Internal.Render where
 
 import Control.Monad (foldM_, unless, when)
 import Data.Foldable (for_)
+import Data.Foldable qualified as Foldable
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import Data.Kind (Type)
 import Data.List (nub)
@@ -87,7 +88,7 @@ mkBackend graph emit headItems withKeys =
               | otherwise = do
                   runHtml (mkBackend graph emit headItems False) graph (item x)
                   pure (Set.insert (key x) seen)
-        foldM_ go Set.empty xs
+        foldM_ go Set.empty (Foldable.toList xs)
     , backendHead = \item -> modifyIORef' headItems (item :)
     , backendEffect = \_ _ -> pure ()
     }

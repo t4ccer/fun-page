@@ -159,7 +159,7 @@ flush g = do
   next <- atomicModifyIORef' (graphDirty g) $ \d ->
     maybe (d, Nothing) (\(e, d') -> (d', Just e)) (Set.minView d)
   for_ next $ \eff -> do
-    readIORef (graphEffects g) >>= sequence_ . Map.lookup eff
+    readIORef (graphEffects g) >>= traverse_ id . Map.lookup eff
     flush g
 
 -- | Run a batch of writes (e.g. a handler) untracked, then run every effect made dirty by it.

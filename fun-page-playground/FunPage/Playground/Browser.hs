@@ -43,6 +43,11 @@ foreign import javascript interruptible "(($c) => { \
   \   document.head.appendChild(s); \
   \ }).then(() => { \
   \   const e = ace.edit('editor', { mode: 'ace/mode/haskell', tabSize: 2, useSoftTabs: true, fontSize: 14 }); \
+  \   const preference = window.matchMedia('(prefers-color-scheme: dark)'); \
+  \   const monokaish = { isDark: true, cssClass: 'ace-monokaish', cssText: '' }; \
+  \   const applyTheme = () => e.setTheme(preference.matches ? monokaish : 'ace/theme/textmate'); \
+  \   applyTheme(); \
+  \   preference.addEventListener('change', applyTheme); \
   \   e.commands.addCommand({ name: 'run', bindKey: { win: 'Ctrl-Enter', mac: 'Cmd-Enter' }, \
   \     exec: () => document.getElementById('run').click() }); \
   \   globalThis.playgroundEditor = e; \

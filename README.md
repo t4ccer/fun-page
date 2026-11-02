@@ -15,7 +15,7 @@ counter = do
     button_ [onClick (writeRVar count 0), hidden ((== 0) <$> readRVar count)] "reset"
 ```
 
-See other [examples](./examples).
+See other [examples](./examples) and the web [playground](https://t4ccer.com/fun-page/playground/).
 
 ## Prerequisites
 
